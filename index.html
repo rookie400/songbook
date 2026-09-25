@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+   content="width=device-width,
+            initial-scale=1.0,
+            maximum-scale=1.0,
+            user-scalable=no">
+
+<title>REMOTE SONG BOOK</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+html,
+body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    background:#080808;
+    color:white;
+    font-family:Arial,Helvetica,sans-serif;
+    overflow:hidden;
+}
+
+body{
+    display:flex;
+    justify-content:center;
+}
+
+#app{
+    width:100%;
+    max-width:600px;
+    height:100%;
+    background:#101010;
+    display:flex;
+    flex-direction:column;
+}
+
+/* =========================
+   SCREENS
+========================= */
+
+.screen{
+    width:100%;
+    height:100%;
+    display:none;
+    flex-direction:column;
+}
+
+.screen.active{
+    display:flex;
+}
+
+/* =========================
+   QR SCREEN
+========================= */
+
+#qrScreen{
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    text-align:center;
+}
+
+#qrTitle{
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:8px;
+}
+
+#qrText{
+    color:#999;
+    font-size:15px;
+    line-height:1.4;
+    margin-bottom:20px;
+}
+
+#reader{
+    width:min(90vw,420px);
+    min-height:280px;
+    border:2px solid #333;
+    border-radius:18px;
+    overflow:hidden;
+    background:#000;
+}
+
+#qrTimer{
+    margin-top:18px;
+    color:#888;
+    font-size:14px;
+}
+
+#timerValue{
+    color:#00ff66;
+    font-size:20px;
+    font-weight:bold;
+}
+
+/* =========================
+   ROOM SCREEN
+========================= */
+
+#roomScreen{
+    align-items:center;
+    justify-content:center;
+    padding:25px;
+    text-align:center;
+}
+
+#roomTitle{
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+
+#roomText{
+    color:#999;
+    line-height:1.5;
+    margin-bottom:25px;
+}
+
+#roomInput{
+    width:100%;
+    max-width:360px;
+    height:64px;
+    border:1px solid #444;
+    border-radius:12px;
+    background:#191919;
+    color:#fff;
+    text-align:center;
+    font-size:30px;
+    font-weight:bold;
+    outline:none;
+}
+
+#roomInput:focus{
+    border-color:#00ff66;
+}
+
+#connectBtn{
+    width:100%;
+    max-width:360px;
+    height:58px;
+    margin-top:14px;
+    border:0;
+    border-radius:12px;
+    background:#00c853;
+    color:#fff;
+    font-size:20px;
+    font-weight:bold;
+}
+
+#connectBtn:active{
+    transform:scale(.97);
+}
+
+#roomStatus{
+    min-height:24px;
+    margin-top:15px;
+    color:#aaa;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+#header{
+    flex-shrink:0;
+    height:66px;
+    padding:8px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#151515;
+    border-bottom:1px solid #292929;
+}
+
+#title{
+    font-size:21px;
+    font-weight:bold;
+}
+
+#roomDisplay{
+    color:#888;
+    font-size:13px;
+    margin-top:2px;
+}
+
+#connectedRoom{
+    color:#00ff66;
+    font-weight:bold;
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+#searchArea{
+    flex-shrink:0;
+    padding:10px;
+    background:#151515;
+    border-bottom:1px solid #292929;
+}
+
+#searchInput{
+    width:100%;
+    height:52px;
+    padding:0 16px;
+    border:1px solid #3c3c3c;
+    border-radius:12px;
+    outline:none;
+    background:#202020;
+    color:white;
+    font-size:18px;
+}
+
+#searchInput:focus{
+    border-color:#00ff66;
+}
+
+#songCount{
+    padding:7px 3px 0;
+    color:#777;
+    font-size:13px;
+}
+
+/* =========================
+   SONG LIST
+========================= */
+
+#songList{
+    flex:1;
+    overflow-y:auto;
+    padding:8px 10px 25px;
+    -webkit-overflow-scrolling:touch;
+}
+
+.songItem{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:74px;
+    padding:10px;
+    margin-bottom:8px;
+    border:1px solid #292929;
+    border-radius:12px;
+    background:#191919;
+}
+
+.songInfo{
+    flex:1;
+    min-width:0;
+}
+
+.songCode{
+    color:#00ff66;
+    font-size:12px;
+    font-weight:bold;
+    margin-bottom:3px;
+}
+
+.songTitle{
+    color:white;
+    font-size:17px;
+    font-weight:bold;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.songSinger{
+    color:#999;
+    font-size:13px;
+    margin-top:3px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.resBtn{
+    flex-shrink:0;
+    width:64px;
+    height:50px;
+    border:0;
+    border-radius:10px;
+    background:#00c853;
+    color:#fff;
+    font-size:16px;
+    font-weight:bold;
+}
+
+.resBtn:active{
+    transform:scale(.93);
+}
+
+.resBtn.sent{
+    background:#555;
+}
+
+#noSongs{
+    display:none;
+    text-align:center;
+    padding:50px 20px;
+    color:#777;
+}
+
+/* =========================
+   TOAST
+========================= */
+
+#toast{
+    position:fixed;
+    left:50%;
+    bottom:24px;
+    transform:translate(-50%,20px);
+    max-width:90%;
+    padding:13px 18px;
+    border-radius:12px;
+    background:#222;
+    color:white;
+    font-size:15px;
+    font-weight:bold;
+    text-align:center;
+    opacity:0;
+    pointer-events:none;
+    transition:.25s;
+    z-index:9999;
+}
+
+#toast.show{
+    opacity:1;
+    transform:translate(-50%,0);
+}
+
+#toast.success{
+    background:#009c40;
+}
+
+#toast.error{
+    background:#b00020;
+}
+
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+<script src="https://unpkg.com/html5-qrcode"
+        type="text/javascript"></script>
+
+</head>
+
+<body>
+
+<div id="app">
+
+```
+<!-- QR -->
+
+<div id="qrScreen" class="screen active">
+
+    <div id="qrTitle">
+        SCAN QR CODE
+    </div>
+
+    <div id="qrText">
+        Scan the QR code shown<br>
+        on the karaoke screen.
+    </div>
+
+    <div id="reader"></div>
+
+    <div id="qrTimer">
+        Scanner will switch to room entry in
+        <br>
+        <strong id="timerValue">30</strong>
+        seconds
+    </div>
+
+</div>
+
+
+<!-- ROOM -->
+
+<div id="roomScreen" class="screen">
+
+    <div id="roomTitle">
+        ENTER ROOM NUMBER
+    </div>
+
+    <div id="roomText">
+        QR code was not scanned.<br>
+        Enter the karaoke room number.
+    </div>
+
+    <input
+        id="roomInput"
+        type="tel"
+        inputmode="numeric"
+        maxlength="5"
+        placeholder="1 - 99999"
+        autocomplete="off">
+
+    <button id="connectBtn">
+        CONNECT
+    </button>
+
+    <div id="roomStatus"></div>
+
+</div>
+
+
+<!-- SONG BOOK -->
+
+<div id="songbookScreen" class="screen">
+
+    <div id="header">
+
+        <div>
+
+            <div id="title">
+                SONG BOOK
+            </div>
+
+            <div id="roomDisplay">
+                ROOM:
+                <span id="connectedRoom">
+                    ---
+                </span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div id="searchArea">
+
+        <input
+            id="searchInput"
+            type="search"
+            placeholder="Search song or singer..."
+            autocomplete="off">
+
+        <div id="songCount">
+            0 songs
+        </div>
+
+    </div>
+
+
+    <div id="songList"></div>
+
+    <div id="noSongs">
+        No songs found.
+    </div>
+
+</div>
+```
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+
+/* =========================================================
+   FIREBASE
+========================================================= */
+
+const firebaseConfig = {
+
+    apiKey:"YOUR_API_KEY",
+
+    authDomain:
+        "jess-santi.firebaseapp.com",
+
+    databaseURL:
+        "https://jess-santi-default-rtdb.firebaseio.com",
+
+    projectId:
+        "jess-santi",
+
+    storageBucket:
+        "jess-santi.firebasestorage.app",
+
+    messagingSenderId:
+        "YOUR_MESSAGING_SENDER_ID",
+
+    appId:
+        "YOUR_APP_ID"
+
+};
+
+
+/* =========================================================
+   SONG DATABASE
+=========================================================
+
+   PASTE THE COMPLETE songs ARRAY YOU SENT HERE.
+
+   IMPORTANT:
+   Keep your existing format:
+
+   {code:"3", singer:".", title:"Happy Birthday To You"},
+   {code:"6", singer:"Regine Velasquez", title:"Dadalhin"},
+
+   Do not change the song codes.
+========================================================= */
+
+const songs = [
+
+    {code:"3", singer:".", title:"Happy Birthday To You"},
+    {code:"6", singer:"Regine Velasquez", title:"Dadalhin"},
+    {code:"17", singer:"Lala Amor", title:"Raining In Manila"},
+    {code:"135", singer:"Jaya", title:"Wala Na Bang Pag-ibig"},
+    {code:"137", singer:"Asin", title:"Itanong mo sa mga bata"},
+    {code:"141", singer:"Jessa Saragoza", title:"Di Bat Ikaw"},
+    {code:"168", singer:"George Benson", title:"Nothing Gonna Change My Love For You"},
+    {code:"178", singer:"Rachel Alejandro", title:"Mr. Cupido"},
+    {code:"189", singer:"Roberta Flack", title:"Killing Me Softly With This Song"},
+    {code:"198", singer:"Connie Francisco", title:"Pretty Little Baby"},
+    {code:"202", singer:"Clair Marlo", title:"Till They Take My Heart Away"},
+    {code:"240", singer:"Jessa Saragoza", title:"Bakit Pa"},
+    {code:"241", singer:"Celine Dion", title:"My Heart Will Go On"},
+    {code:"253", singer:"Debby Gibson", title:"No More Rhyme"},
+    {code:"275", singer:"Whitney Uston", title:"One Moment In Time"},
+    {code:"278", singer:"Climax", title:"I Miss You"},
+    {code:"302", singer:"Regine Velasquez", title:"Pangako"},
+    {code:"308", singer:"Kenny Rogers", title:"Island In The Stream"},
+    {code:"313", singer:"Renz Verano", title:"Remenber Me"},
+    {code:"327", singer:"Tootsie Guivara", title:"Pasulyap-sulyap"},
+    {code:"339", singer:"Leann Rimes", title:"How Do I Live"},
+    {code:"344", singer:"Valentina Mcbride", title:"My Valentine"},
+    {code:"382", singer:"Jhon Denver", title:"Take Me Home Down The Road"},
+    {code:"403", singer:"Dione Warwick", title:"I'll Never Love This Way Again"},
+    {code:"470", singer:"eXPOSE", title:"i'LL nEVER gET oVER yOU gETTING oVER mE"},
+    {code:"475", singer:"Rey Valera", title:"Kahit maputi na ang buhok ko"},
+    {code:"480", singer:"The Cranberries", title:"Zombie"},
+    {code:"537", singer:"Joey Albert", title:"I Remember The Boy"},
+    {code:"540", singer:"Joey Albert", title:"Tell Me"},
+    {code:"559", singer:"Diana Ros", title:"If We Hold On Together"},
+    {code:"560", singer:"", title:"If This Is Love"},
+    {code:"617", singer:"Sampaguita", title:"Nosi Balasi"},
+    {code:"625", singer:"Regine Velasquez", title:"You Are My Song"},
+    {code:"636", singer:"Roxette", title:"It Must Been Love"},
+    {code:"638", singer:"The Corrs", title:"Breathless"},
+    {code:"650", singer:"Men Oppose", title:"Pag-ibig Ko Sa'yo'y Di Magbabago"},
+    {code:"680", singer:"Whitney Houston", title:"I Have Nothing"},
+    {code:"685", singer:"Kylie Minogue & Jason Donavan", title:"Especially For You"},
+    {code:"721", singer:"Chaka Khan", title:"Through The Fire"},
+    {code:"728", singer:"Patti Austin", title:"All Behind Us Now"},
+    {code:"746", singer:"", title:"Till My Heart Aches End"},
+    {code:"985", singer:"Tyler Collins", title:"Thanks To You"},
+    {code:"988", singer:"Kenny Rogers & Sheena Easton", title:"We've Got Tonight"},
+    {code:"993", singer:"Alison Krauss", title:"Baby Now That I Found You"},
+
+    /*
+       ======================================================
+       ILAGAY DITO ANG NATITIRANG SONG LIST MO.
+       ======================================================
+
+       Ang code sa ibaba ay handa nang tumanggap ng
+       buong array na ipinadala mo.
+    */
+
+];
+
+
+/* =========================================================
+   VARIABLES
+========================================================= */
+
+let database = null;
+
+let currentRoom = null;
+
+let roomRef = null;
+
+let qrScanner = null;
+
+let qrTimer = null;
+
+let qrSeconds = 30;
+
+let connecting = false;
+
+let toastTimer = null;
+
+
+/* =========================================================
+   ELEMENTS
+========================================================= */
+
+const qrScreen =
+    document.getElementById("qrScreen");
+
+const roomScreen =
+    document.getElementById("roomScreen");
+
+const songbookScreen =
+    document.getElementById("songbookScreen");
+
+const roomInput =
+    document.getElementById("roomInput");
+
+const connectBtn =
+    document.getElementById("connectBtn");
+
+const roomStatus =
+    document.getElementById("roomStatus");
+
+const connectedRoom =
+    document.getElementById("connectedRoom");
+
+const searchInput =
+    document.getElementById("searchInput");
+
+const songList =
+    document.getElementById("songList");
+
+const songCount =
+    document.getElementById("songCount");
+
+const noSongs =
+    document.getElementById("noSongs");
+
+const toast =
+    document.getElementById("toast");
+
+const timerValue =
+    document.getElementById("timerValue");
+
+
+/* =========================================================
+   SCREEN
+========================================================= */
+
+function showScreen(screen){
+
+    qrScreen.classList.remove("active");
+
+    roomScreen.classList.remove("active");
+
+    songbookScreen.classList.remove("active");
+
+    screen.classList.add("active");
+
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function showToast(message,type=""){
+
+    clearTimeout(toastTimer);
+
+    toast.textContent = message;
+
+    toast.className =
+        "show " + type;
+
+    toastTimer =
+        setTimeout(()=>{
+
+            toast.className = "";
+
+        },2500);
+
+}
+
+
+/* =========================================================
+   FIREBASE INIT
+========================================================= */
+
+function initFirebase(){
+
+    try{
+
+        if(
+            typeof firebase === "undefined"
+        ){
+
+            throw new Error(
+                "Firebase unavailable."
+            );
+
+        }
+
+        if(!firebase.apps.length){
+
+            firebase.initializeApp(
+                firebaseConfig
+            );
+
+        }
+
+        database =
+            firebase.database();
+
+        return true;
+
+    }catch(error){
+
+        console.error(error);
+
+        showToast(
+            "Firebase initialization failed.",
+            "error"
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================================
+   VALID ROOM
+========================================================= */
+
+function validRoom(value){
+
+    const text =
+        String(value || "")
+        .replace(/\D/g,"")
+        .slice(0,5);
+
+    if(!text){
+
+        return null;
+
+    }
+
+    const number =
+        Number(text);
+
+    if(
+        number < 1 ||
+        number > 99999
+    ){
+
+        return null;
+
+    }
+
+    return String(number);
+
+}
+
+
+/* =========================================================
+   CONNECT
+========================================================= */
+
+async function connectToRoom(value){
+
+    if(connecting){
+
+        return;
+
+    }
+
+    const room =
+        validRoom(value);
+
+    if(!room){
+
+        roomStatus.textContent =
+            "Room must be 1 to 99999.";
+
+        return;
+
+    }
+
+    if(!database){
+
+        if(!initFirebase()){
+
+            return;
+
+        }
+
+    }
+
+    connecting = true;
+
+    connectBtn.disabled = true;
+
+    connectBtn.textContent =
+        "CONNECTING...";
+
+    roomStatus.textContent =
+        "Checking room...";
+
+    try{
+
+        const ref =
+            database.ref(
+                "karaokeRooms/" + room
+            );
+
+        const snapshot =
+            await ref.once("value");
+
+        if(!snapshot.exists()){
+
+            throw new Error(
+                "Room does not exist."
+            );
+
+        }
+
+        const data =
+            snapshot.val() || {};
+
+        if(data.active !== true){
+
+            throw new Error(
+                "Room is not active."
+            );
+
+        }
+
+        currentRoom =
+            room;
+
+        roomRef =
+            ref;
+
+        connectedRoom.textContent =
+            room;
+
+        showScreen(
+            songbookScreen
+        );
+
+        renderSongs();
+
+        showToast(
+            "Connected to Room " + room,
+            "success"
+        );
+
+    }catch(error){
+
+        console.error(error);
+
+        roomStatus.textContent =
+            error.message ||
+            "Unable to connect.";
+
+        showToast(
+            "Room unavailable.",
+            "error"
+        );
+
+    }finally{
+
+        connecting = false;
+
+        connectBtn.disabled = false;
+
+        connectBtn.textContent =
+            "CONNECT";
+
+    }
+
+}
+
+
+/* =========================================================
+   QR SCANNER
+========================================================= */
+
+function startQrScanner(){
+
+    if(
+        typeof Html5Qrcode ===
+        "undefined"
+    ){
+
+        showRoomAfterQr();
+
+        return;
+
+    }
+
+    qrScanner =
+        new Html5Qrcode(
+            "reader"
+        );
+
+    qrScanner.start(
+
+        {
+            facingMode:"environment"
+        },
+
+        {
+            fps:10,
+
+            qrbox:{
+                width:250,
+                height:250
+            }
+
+        },
+
+        decodedText => {
+
+            handleQr(decodedText);
+
+        },
+
+        () => {}
+
+    ).catch(error => {
+
+        console.error(
+            "QR camera error:",
+            error
+        );
+
+        showRoomAfterQr();
+
+    });
+
+}
+
+
+/* =========================================================
+   QR RESULT
+========================================================= */
+
+async function handleQr(text){
+
+    if(connecting){
+
+        return;
+
+    }
+
+    let room = null;
+
+    /*
+       QR can contain:
+
+       https://example.com/songbook.html?room=12345
+
+       or simply:
+
+       12345
+    */
+
+    try{
+
+        const url =
+            new URL(text);
+
+        room =
+            url.searchParams.get(
+                "room"
+            );
+
+    }catch(error){
+
+        room =
+            String(text || "")
+            .replace(/\D/g,"");
+
+    }
+
+    room =
+        validRoom(room);
+
+    if(!room){
+
+        showToast(
+            "Invalid karaoke QR.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    await stopQrScanner();
+
+    clearInterval(qrTimer);
+
+    roomInput.value =
+        room;
+
+    await connectToRoom(room);
+
+}
+
+
+/* =========================================================
+   STOP QR
+========================================================= */
+
+async function stopQrScanner(){
+
+    if(!qrScanner){
+
+        return;
+
+    }
+
+    try{
+
+        if(qrScanner.isScanning){
+
+            await qrScanner.stop();
+
+        }
+
+    }catch(error){
+
+        console.warn(error);
+
+    }
+
+    try{
+
+        await qrScanner.clear();
+
+    }catch(error){
+
+        console.warn(error);
+
+    }
+
+    qrScanner = null;
+
+}
+
+
+/* =========================================================
+   QR TIMER
+========================================================= */
+
+function startQrTimer(){
+
+    qrSeconds = 30;
+
+    timerValue.textContent =
+        qrSeconds;
+
+    clearInterval(qrTimer);
+
+    qrTimer =
+        setInterval(()=>{
+
+            qrSeconds--;
+
+            timerValue.textContent =
+                qrSeconds;
+
+            if(qrSeconds <= 0){
+
+                clearInterval(qrTimer);
+
+                showRoomAfterQr();
+
+            }
+
+        },1000);
+
+}
+
+
+/* =========================================================
+   ROOM AFTER QR
+========================================================= */
+
+async function showRoomAfterQr(){
+
+    clearInterval(qrTimer);
+
+    await stopQrScanner();
+
+    showScreen(roomScreen);
+
+    setTimeout(()=>{
+
+        roomInput.focus();
+
+    },100);
+
+}
+
+
+/* =========================================================
+   SEARCH / RENDER
+========================================================= */
+
+function renderSongs(){
+
+    const query =
+        searchInput.value
+        .trim()
+        .toLowerCase();
+
+    const filtered =
+        songs.filter(song => {
+
+            const code =
+                String(
+                    song.code || ""
+                ).toLowerCase();
+
+            const singer =
+                String(
+                    song.singer || ""
+                ).toLowerCase();
+
+            const title =
+                String(
+                    song.title || ""
+                ).toLowerCase();
+
+            /*
+               Huwag ipakita ang blank
+               song entries.
+            */
+
+            if(!title.trim()){
+
+                return false;
+
+            }
+
+            return (
+
+                code.includes(query) ||
+
+                singer.includes(query) ||
+
+                title.includes(query)
+
+            );
+
+        });
+
+    songList.innerHTML = "";
+
+    songCount.textContent =
+        filtered.length +
+        (
+            filtered.length === 1
+                ? " song"
+                : " songs"
+        );
+
+    noSongs.style.display =
+        filtered.length
+            ? "none"
+            : "block";
+
+    filtered.forEach(song => {
+
+        const item =
+            document.createElement("div");
+
+        item.className =
+            "songItem";
+
+
+        const info =
+            document.createElement("div");
+
+        info.className =
+            "songInfo";
+
+
+        const code =
+            document.createElement("div");
+
+        code.className =
+            "songCode";
+
+        code.textContent =
+            String(song.code)
+            .padStart(6,"0");
+
+
+        const title =
+            document.createElement("div");
+
+        title.className =
+            "songTitle";
+
+        title.textContent =
+            song.title;
+
+
+        const singer =
+            document.createElement("div");
+
+        singer.className =
+            "songSinger";
+
+        singer.textContent =
+            song.singer || "";
+
+
+        info.appendChild(code);
+
+        info.appendChild(title);
+
+        info.appendChild(singer);
+
+
+        const res =
+            document.createElement("button");
+
+        res.className =
+            "resBtn";
+
+        res.textContent =
+            "RES";
+
+
+        res.addEventListener(
+            "click",
+            () => {
+
+                reserveSong(
+                    song,
+                    res
+                );
+
+            }
+        );
+
+
+        item.appendChild(info);
+
+        item.appendChild(res);
+
+        songList.appendChild(item);
+
+    });
+
+}
+
+
+/* =========================================================
+   RESERVE
+========================================================= */
+
+async function reserveSong(song,button){
+
+    if(!database){
+
+        showToast(
+            "Not connected.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    if(!currentRoom){
+
+        showToast(
+            "No room connected.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    const code =
+        String(song.code || "")
+        .replace(/\D/g,"");
+
+    if(
+        !code ||
+        Number(code) < 1 ||
+        Number(code) > 99999
+    ){
+
+        showToast(
+            "Invalid song number.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    button.disabled = true;
+
+    button.classList.add("sent");
+
+    button.textContent =
+        "...";
+
+    try{
+
+        await database
+            .ref(
+                "karaokeRooms/" +
+                currentRoom +
+                "/remoteReserve"
+            )
+            .push({
+
+                code:code,
+
+                singer:
+                    song.singer || "",
+
+                title:
+                    song.title || "",
+
+                createdAt:
+                    firebase.database
+                    .ServerValue
+                    .TIMESTAMP
+
+            });
+
+        button.textContent =
+            "SENT";
+
+        showToast(
+            "Song " +
+            code +
+            " sent.",
+            "success"
+        );
+
+        setTimeout(()=>{
+
+            button.disabled = false;
+
+            button.classList.remove(
+                "sent"
+            );
+
+            button.textContent =
+                "RES";
+
+        },1500);
+
+    }catch(error){
+
+        console.error(error);
+
+        button.disabled = false;
+
+        button.classList.remove(
+            "sent"
+        );
+
+        button.textContent =
+            "RES";
+
+        showToast(
+            "Failed to send song.",
+            "error"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   INPUT EVENTS
+========================================================= */
+
+roomInput.addEventListener(
+    "input",
+    () => {
+
+        roomInput.value =
+            roomInput.value
+            .replace(/\D/g,"")
+            .slice(0,5);
+
+    }
+);
+
+
+roomInput.addEventListener(
+    "keydown",
+    event => {
+
+        if(event.key === "Enter"){
+
+            connectToRoom(
+                roomInput.value
+            );
+
+        }
+
+    }
+);
+
+
+connectBtn.addEventListener(
+    "click",
+    () => {
+
+        connectToRoom(
+            roomInput.value
+        );
+
+    }
+);
+
+
+searchInput.addEventListener(
+    "input",
+    renderSongs
+);
+
+
+/* =========================================================
+   START
+========================================================= */
+
+function start(){
+
+    if(!initFirebase()){
+
+        return;
+
+    }
+
+    /*
+       IMPORTANT:
+       Always open QR scanner first.
+    */
+
+    showScreen(qrScreen);
+
+    startQrTimer();
+
+    startQrScanner();
+
+}
+
+
+start();
+
+</script>
+
+</body>
+</html>
