@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 
@@ -168,6 +167,7 @@ body{
     min-height:24px;
     margin-top:15px;
     color:#aaa;
+    font-weight:bold;
 }
 
 /* =========================
@@ -177,12 +177,16 @@ body{
 #header{
     flex-shrink:0;
     height:66px;
-    padding:8px 14px;
+    padding:8px 10px 8px 14px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     background:#151515;
     border-bottom:1px solid #292929;
+}
+
+#titleArea{
+    min-width:0;
 }
 
 #title{
@@ -199,6 +203,32 @@ body{
 #connectedRoom{
     color:#00ff66;
     font-weight:bold;
+}
+
+/* =========================
+   STOP BUTTON
+========================= */
+
+#stopBtn{
+    flex-shrink:0;
+    width:76px;
+    height:48px;
+    margin-left:10px;
+    border:0;
+    border-radius:10px;
+    background:#d40000;
+    color:#fff;
+    font-size:16px;
+    font-weight:bold;
+}
+
+#stopBtn:active{
+    transform:scale(.93);
+    background:#ff0000;
+}
+
+#stopBtn.sending{
+    background:#555;
 }
 
 /* =========================
@@ -350,6 +380,10 @@ body{
     background:#b00020;
 }
 
+#toast.wait{
+    background:#8a6500;
+}
+
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -365,8 +399,9 @@ body{
 
 <div id="app">
 
-
-<!-- QR -->
+<!-- =========================
+     QR
+========================= -->
 
 <div id="qrScreen" class="screen active">
 
@@ -391,7 +426,9 @@ body{
 </div>
 
 
-<!-- ROOM -->
+<!-- =========================
+     ROOM
+========================= -->
 
 <div id="roomScreen" class="screen">
 
@@ -421,13 +458,15 @@ body{
 </div>
 
 
-<!-- SONG BOOK -->
+<!-- =========================
+     SONG BOOK
+========================= -->
 
 <div id="songbookScreen" class="screen">
 
     <div id="header">
 
-        <div>
+        <div id="titleArea">
 
             <div id="title">
                 SONG BOOK
@@ -441,6 +480,10 @@ body{
             </div>
 
         </div>
+
+        <button id="stopBtn">
+            ⏹ STOP
+        </button>
 
     </div>
 
@@ -468,10 +511,10 @@ body{
 
 </div>
 
-
 </div>
 
 <div id="toast"></div>
+
 
 <script>
 
@@ -506,17 +549,6 @@ const firebaseConfig = {
 
 /* =========================================================
    SONG DATABASE
-=========================================================
-
-   PASTE THE COMPLETE songs ARRAY YOU SENT HERE.
-
-   IMPORTANT:
-   Keep your existing format:
-
-   {code:"3", singer:".", title:"Happy Birthday To You"},
-   {code:"6", singer:"Regine Velasquez", title:"Dadalhin"},
-
-   Do not change the song codes.
 ========================================================= */
 
 const songs = [
@@ -1786,6 +1818,10 @@ let currentRoom = null;
 
 let roomRef = null;
 
+let remoteSlotRef = null;
+
+let roomListener = null;
+
 let qrScanner = null;
 
 let qrTimer = null;
@@ -1795,6 +1831,34 @@ let qrSeconds = 30;
 let connecting = false;
 
 let toastTimer = null;
+
+let releasing = false;
+
+
+/* =========================================================
+   REMOTE CLIENT ID
+========================================================= */
+
+let remoteClientId =
+    localStorage.getItem(
+        "karaokeRemoteClientId"
+    );
+
+if(!remoteClientId){
+
+    remoteClientId =
+        Date.now() +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2);
+
+    localStorage.setItem(
+        "karaokeRemoteClientId",
+        remoteClientId
+    );
+
+}
 
 
 /* =========================================================
@@ -1840,6 +1904,9 @@ const toast =
 const timerValue =
     document.getElementById("timerValue");
 
+const stopBtn =
+    document.getElementById("stopBtn");
+
 
 /* =========================================================
    SCREEN
@@ -1866,7 +1933,8 @@ function showToast(message,type=""){
 
     clearTimeout(toastTimer);
 
-    toast.textContent = message;
+    toast.textContent =
+        message;
 
     toast.className =
         "show " + type;
@@ -1890,7 +1958,8 @@ function initFirebase(){
     try{
 
         if(
-            typeof firebase === "undefined"
+            typeof firebase ===
+            "undefined"
         ){
 
             throw new Error(
@@ -1963,6 +2032,278 @@ function validRoom(value){
 
 
 /* =========================================================
+   CLAIM REMOTE SLOT
+========================================================= */
+
+async function claimRemoteSlot(ref){
+
+    /*
+     * There are exactly 3 remote slots.
+     */
+
+    for(
+        let i=1;
+        i<=3;
+        i++
+    ){
+
+        const slotRef =
+            ref
+            .child("remoteUsers")
+            .child("slot"+i);
+
+
+        try{
+
+            /*
+             * If this remote disappears,
+             * Firebase automatically releases
+             * the slot.
+             */
+
+            slotRef
+                .onDisconnect()
+                .remove();
+
+        }catch(error){
+
+            console.error(
+                "onDisconnect error:",
+                error
+            );
+
+            continue;
+
+        }
+
+
+        const result =
+            await slotRef.transaction(
+                current => {
+
+                    /*
+                     * Somebody already owns
+                     * this slot.
+                     */
+
+                    if(current){
+
+                        return;
+
+                    }
+
+
+                    /*
+                     * Claim empty slot.
+                     */
+
+                    return {
+
+                        clientId:
+                            remoteClientId,
+
+                        joinedAt:
+                            firebase
+                                .database
+                                .ServerValue
+                                .TIMESTAMP
+
+                    };
+
+                },
+                undefined,
+                false
+            );
+
+
+        if(
+            result.committed
+        ){
+
+            remoteSlotRef =
+                slotRef;
+
+            return true;
+
+        }
+
+    }
+
+
+    return false;
+
+}
+
+
+/* =========================================================
+   RELEASE REMOTE SLOT
+========================================================= */
+
+async function releaseRemoteSlot(){
+
+    if(!remoteSlotRef){
+
+        return;
+
+    }
+
+    const slot =
+        remoteSlotRef;
+
+    remoteSlotRef =
+        null;
+
+    try{
+
+        await slot.remove();
+
+    }catch(error){
+
+        console.warn(
+            "Remote slot release error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LISTEN FOR ROOM
+========================================================= */
+
+function listenForRoomStatus(){
+
+    if(!roomRef){
+
+        return;
+
+    }
+
+
+    if(roomListener){
+
+        roomRef
+            .off(
+                "value",
+                roomListener
+            );
+
+    }
+
+
+    roomListener =
+        snapshot => {
+
+            const data =
+                snapshot.val();
+
+
+            /*
+             * Classic is no longer
+             * using this room.
+             */
+
+            if(
+                !data ||
+                data.active !== true
+            ){
+
+                handleRoomLost();
+
+            }
+
+        };
+
+
+    roomRef.on(
+        "value",
+        roomListener
+    );
+
+}
+
+
+/* =========================================================
+   ROOM LOST
+========================================================= */
+
+async function handleRoomLost(){
+
+    if(!currentRoom){
+
+        return;
+
+    }
+
+    if(releasing){
+
+        return;
+
+    }
+
+    releasing = true;
+
+
+    const oldRoomRef =
+        roomRef;
+
+
+    if(
+        oldRoomRef &&
+        roomListener
+    ){
+
+        oldRoomRef.off(
+            "value",
+            roomListener
+        );
+
+    }
+
+
+    await releaseRemoteSlot();
+
+
+    currentRoom =
+        null;
+
+    roomRef =
+        null;
+
+    roomListener =
+        null;
+
+
+    connectedRoom.textContent =
+        "---";
+
+
+    releasing = false;
+
+
+    showScreen(
+        roomScreen
+    );
+
+
+    roomStatus.textContent =
+        "ROOM NOT FOUND";
+
+
+    showToast(
+        "ROOM NOT FOUND",
+        "error"
+    );
+
+
+    roomInput.focus();
+
+}
+
+
+/* =========================================================
    CONNECT
 ========================================================= */
 
@@ -1974,8 +2315,10 @@ async function connectToRoom(value){
 
     }
 
+
     const room =
         validRoom(value);
+
 
     if(!room){
 
@@ -1985,6 +2328,7 @@ async function connectToRoom(value){
         return;
 
     }
+
 
     if(!database){
 
@@ -1996,6 +2340,7 @@ async function connectToRoom(value){
 
     }
 
+
     connecting = true;
 
     connectBtn.disabled = true;
@@ -2006,34 +2351,124 @@ async function connectToRoom(value){
     roomStatus.textContent =
         "Checking room...";
 
+
     try{
 
         const ref =
             database.ref(
-                "karaokeRooms/" + room
+                "karaokeRooms/" +
+                room
             );
 
+
         const snapshot =
-            await ref.once("value");
+            await ref.once(
+                "value"
+            );
+
+
+        /*
+         * ROOM MUST EXIST.
+         */
 
         if(!snapshot.exists()){
 
-            throw new Error(
-                "Room does not exist."
+            roomStatus.textContent =
+                "ROOM NOT FOUND";
+
+            showToast(
+                "ROOM NOT FOUND",
+                "error"
             );
 
+            return;
+
         }
+
 
         const data =
             snapshot.val() || {};
 
+
+        /*
+         * CLASSIC.HTML MUST BE ACTIVE.
+         */
+
         if(data.active !== true){
 
-            throw new Error(
-                "Room is not active."
+            roomStatus.textContent =
+                "ROOM NOT FOUND";
+
+            showToast(
+                "ROOM NOT FOUND",
+                "error"
             );
 
+            return;
+
         }
+
+
+        /*
+         * CLAIM ONE OF ONLY
+         * THREE REMOTE SLOTS.
+         */
+
+        const slotClaimed =
+            await claimRemoteSlot(
+                ref
+            );
+
+
+        if(!slotClaimed){
+
+            roomStatus.textContent =
+                "ROOM FULL";
+
+            showToast(
+                "ROOM FULL - MAXIMUM 3 USERS",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * Double-check that Classic
+         * is still active after taking
+         * the slot.
+         */
+
+        const verifySnapshot =
+            await ref.once(
+                "value"
+            );
+
+
+        const verifyData =
+            verifySnapshot.val() || {};
+
+
+        if(
+            verifyData.active !== true
+        ){
+
+            await releaseRemoteSlot();
+
+            roomStatus.textContent =
+                "ROOM NOT FOUND";
+
+            showToast(
+                "ROOM NOT FOUND",
+                "error"
+            );
+
+            return;
+
+        }
+
 
         currentRoom =
             room;
@@ -2041,32 +2476,49 @@ async function connectToRoom(value){
         roomRef =
             ref;
 
+
         connectedRoom.textContent =
             room;
+
+
+        listenForRoomStatus();
+
 
         showScreen(
             songbookScreen
         );
 
+
         renderSongs();
 
+
         showToast(
-            "Connected to Room " + room,
+            "Connected to Room " +
+            room,
             "success"
         );
 
+
     }catch(error){
 
-        console.error(error);
+        console.error(
+            "Room connection error:",
+            error
+        );
+
+
+        await releaseRemoteSlot();
+
 
         roomStatus.textContent =
-            error.message ||
-            "Unable to connect.";
+            "ROOM NOT FOUND";
+
 
         showToast(
-            "Room unavailable.",
+            "ROOM NOT FOUND",
             "error"
         );
+
 
     }finally{
 
@@ -2099,10 +2551,12 @@ function startQrScanner(){
 
     }
 
+
     qrScanner =
         new Html5Qrcode(
             "reader"
         );
+
 
     qrScanner.start(
 
@@ -2122,7 +2576,9 @@ function startQrScanner(){
 
         decodedText => {
 
-            handleQr(decodedText);
+            handleQr(
+                decodedText
+            );
 
         },
 
@@ -2154,17 +2610,9 @@ async function handleQr(text){
 
     }
 
+
     let room = null;
 
-    /*
-       QR can contain:
-
-       https://example.com/songbook.html?room=12345
-
-       or simply:
-
-       12345
-    */
 
     try{
 
@@ -2184,8 +2632,10 @@ async function handleQr(text){
 
     }
 
+
     room =
         validRoom(room);
+
 
     if(!room){
 
@@ -2198,14 +2648,19 @@ async function handleQr(text){
 
     }
 
+
     await stopQrScanner();
 
     clearInterval(qrTimer);
 
+
     roomInput.value =
         room;
 
-    await connectToRoom(room);
+
+    await connectToRoom(
+        room
+    );
 
 }
 
@@ -2222,6 +2677,7 @@ async function stopQrScanner(){
 
     }
 
+
     try{
 
         if(qrScanner.isScanning){
@@ -2236,6 +2692,7 @@ async function stopQrScanner(){
 
     }
 
+
     try{
 
         await qrScanner.clear();
@@ -2245,6 +2702,7 @@ async function stopQrScanner(){
         console.warn(error);
 
     }
+
 
     qrScanner = null;
 
@@ -2262,19 +2720,26 @@ function startQrTimer(){
     timerValue.textContent =
         qrSeconds;
 
+
     clearInterval(qrTimer);
+
 
     qrTimer =
         setInterval(()=>{
 
             qrSeconds--;
 
+
             timerValue.textContent =
                 qrSeconds;
 
+
             if(qrSeconds <= 0){
 
-                clearInterval(qrTimer);
+                clearInterval(
+                    qrTimer
+                );
+
 
                 showRoomAfterQr();
 
@@ -2295,7 +2760,10 @@ async function showRoomAfterQr(){
 
     await stopQrScanner();
 
-    showScreen(roomScreen);
+    showScreen(
+        roomScreen
+    );
+
 
     setTimeout(()=>{
 
@@ -2317,6 +2785,7 @@ function renderSongs(){
         .trim()
         .toLowerCase();
 
+
     const filtered =
         songs.filter(song => {
 
@@ -2325,26 +2794,25 @@ function renderSongs(){
                     song.code || ""
                 ).toLowerCase();
 
+
             const singer =
                 String(
                     song.singer || ""
                 ).toLowerCase();
+
 
             const title =
                 String(
                     song.title || ""
                 ).toLowerCase();
 
-            /*
-               Huwag ipakita ang blank
-               song entries.
-            */
 
             if(!title.trim()){
 
                 return false;
 
             }
+
 
             return (
 
@@ -2358,7 +2826,9 @@ function renderSongs(){
 
         });
 
+
     songList.innerHTML = "";
+
 
     songCount.textContent =
         filtered.length +
@@ -2368,32 +2838,44 @@ function renderSongs(){
                 : " songs"
         );
 
+
     noSongs.style.display =
         filtered.length
             ? "none"
             : "block";
 
+
     filtered.forEach(song => {
 
         const item =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         item.className =
             "songItem";
 
 
         const info =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         info.className =
             "songInfo";
 
 
         const code =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         code.className =
             "songCode";
+
 
         code.textContent =
             String(song.code)
@@ -2401,20 +2883,28 @@ function renderSongs(){
 
 
         const title =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         title.className =
             "songTitle";
+
 
         title.textContent =
             song.title;
 
 
         const singer =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         singer.className =
             "songSinger";
+
 
         singer.textContent =
             song.singer || "";
@@ -2428,10 +2918,14 @@ function renderSongs(){
 
 
         const res =
-            document.createElement("button");
+            document.createElement(
+                "button"
+            );
+
 
         res.className =
             "resBtn";
+
 
         res.textContent =
             "RES";
@@ -2454,7 +2948,10 @@ function renderSongs(){
 
         item.appendChild(res);
 
-        songList.appendChild(item);
+
+        songList.appendChild(
+            item
+        );
 
     });
 
@@ -2465,7 +2962,10 @@ function renderSongs(){
    RESERVE
 ========================================================= */
 
-async function reserveSong(song,button){
+async function reserveSong(
+    song,
+    button
+){
 
     if(!database){
 
@@ -2478,6 +2978,7 @@ async function reserveSong(song,button){
 
     }
 
+
     if(!currentRoom){
 
         showToast(
@@ -2489,9 +2990,16 @@ async function reserveSong(song,button){
 
     }
 
+
     const code =
-        String(song.code || "")
-        .replace(/\D/g,"");
+        String(
+            song.code || ""
+        )
+        .replace(
+            /\D/g,
+            ""
+        );
+
 
     if(
         !code ||
@@ -2508,12 +3016,55 @@ async function reserveSong(song,button){
 
     }
 
+
+    /*
+     * Make sure Classic is
+     * still active before sending.
+     */
+
+    try{
+
+        const snapshot =
+            await roomRef.once(
+                "value"
+            );
+
+
+        const data =
+            snapshot.val() || {};
+
+
+        if(
+            data.active !== true
+        ){
+
+            handleRoomLost();
+
+            return;
+
+        }
+
+    }catch(error){
+
+        showToast(
+            "ROOM NOT FOUND",
+            "error"
+        );
+
+        return;
+
+    }
+
+
     button.disabled = true;
 
-    button.classList.add("sent");
+    button.classList.add(
+        "sent"
+    );
 
     button.textContent =
         "...";
+
 
     try{
 
@@ -2540,8 +3091,10 @@ async function reserveSong(song,button){
 
             });
 
+
         button.textContent =
             "SENT";
+
 
         showToast(
             "Song " +
@@ -2549,6 +3102,7 @@ async function reserveSong(song,button){
             " sent.",
             "success"
         );
+
 
         setTimeout(()=>{
 
@@ -2563,9 +3117,11 @@ async function reserveSong(song,button){
 
         },1500);
 
+
     }catch(error){
 
         console.error(error);
+
 
         button.disabled = false;
 
@@ -2575,6 +3131,7 @@ async function reserveSong(song,button){
 
         button.textContent =
             "RES";
+
 
         showToast(
             "Failed to send song.",
@@ -2587,6 +3144,175 @@ async function reserveSong(song,button){
 
 
 /* =========================================================
+   STOP CURRENT SONG
+========================================================= */
+
+async function stopCurrentSong(){
+
+    if(!database){
+
+        showToast(
+            "Not connected.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    if(!currentRoom || !roomRef){
+
+        showToast(
+            "No room connected.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * Verify Classic is still active.
+     */
+
+    try{
+
+        const snapshot =
+            await roomRef.once(
+                "value"
+            );
+
+
+        const data =
+            snapshot.val() || {};
+
+
+        if(
+            data.active !== true
+        ){
+
+            handleRoomLost();
+
+            return;
+
+        }
+
+    }catch(error){
+
+        showToast(
+            "ROOM NOT FOUND",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    stopBtn.disabled = true;
+
+    stopBtn.classList.add(
+        "sending"
+    );
+
+    stopBtn.textContent =
+        "...";
+
+
+    try{
+
+        /*
+         * PUSH creates a unique command.
+         * classic.html will listen to
+         * remoteCommand/child_added.
+         */
+
+        await database
+            .ref(
+                "karaokeRooms/" +
+                currentRoom +
+                "/remoteCommand"
+            )
+            .push({
+
+                command:"STOP",
+
+                clientId:
+                    remoteClientId,
+
+                createdAt:
+                    firebase.database
+                    .ServerValue
+                    .TIMESTAMP
+
+            });
+
+
+        stopBtn.textContent =
+            "STOPPED";
+
+
+        showToast(
+            "STOP command sent.",
+            "success"
+        );
+
+
+        setTimeout(()=>{
+
+            stopBtn.disabled = false;
+
+            stopBtn.classList.remove(
+                "sending"
+            );
+
+            stopBtn.textContent =
+                "⏹ STOP";
+
+        },1000);
+
+
+    }catch(error){
+
+        console.error(
+            "STOP command error:",
+            error
+        );
+
+
+        stopBtn.disabled = false;
+
+        stopBtn.classList.remove(
+            "sending"
+        );
+
+        stopBtn.textContent =
+            "⏹ STOP";
+
+
+        showToast(
+            "Failed to send STOP.",
+            "error"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   STOP BUTTON
+========================================================= */
+
+stopBtn.addEventListener(
+    "click",
+    stopCurrentSong
+);
+
+
+/* =========================================================
    INPUT EVENTS
 ========================================================= */
 
@@ -2596,7 +3322,10 @@ roomInput.addEventListener(
 
         roomInput.value =
             roomInput.value
-            .replace(/\D/g,"")
+            .replace(
+                /\D/g,
+                ""
+            )
             .slice(0,5);
 
     }
@@ -2607,7 +3336,11 @@ roomInput.addEventListener(
     "keydown",
     event => {
 
-        if(event.key === "Enter"){
+        if(
+            event.key === "Enter"
+        ){
+
+            event.preventDefault();
 
             connectToRoom(
                 roomInput.value
@@ -2638,6 +3371,30 @@ searchInput.addEventListener(
 
 
 /* =========================================================
+   RELEASE ON PAGE EXIT
+========================================================= */
+
+window.addEventListener(
+    "pagehide",
+    () => {
+
+        if(
+            remoteSlotRef
+        ){
+
+            try{
+
+                remoteSlotRef.remove();
+
+            }catch(error){}
+
+        }
+
+    }
+);
+
+
+/* =========================================================
    START
 ========================================================= */
 
@@ -2649,12 +3406,11 @@ function start(){
 
     }
 
-    /*
-       IMPORTANT:
-       Always open QR scanner first.
-    */
 
-    showScreen(qrScreen);
+    showScreen(
+        qrScreen
+    );
+
 
     startQrTimer();
 
