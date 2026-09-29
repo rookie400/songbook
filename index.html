@@ -6,10 +6,10 @@
 <meta charset="UTF-8">
 
 <meta name="viewport"
-    content="width=device-width,
-             initial-scale=1.0,
-             maximum-scale=1.0,
-             user-scalable=no">
+ content="width=device-width,
+          initial-scale=1.0,
+          maximum-scale=1.0,
+          user-scalable=no">
 
 <title>REMOTE SONG BOOK</title>
 
@@ -325,84 +325,85 @@ body{
 
 <div id="roomScreen" class="screen active">
 
-    <div id="roomTitle">
-        ENTER ROOM NUMBER
-    </div>
-
-    <div id="roomText">
-        Enter the karaoke room number<br>
-        to connect to the song book.
-    </div>
-
-    <input
-        id="roomInput"
-        type="tel"
-        inputmode="numeric"
-        maxlength="5"
-        placeholder="1 - 99999"
-        autocomplete="off">
-
-    <button id="connectBtn">
-        CONNECT
-    </button>
-
-    <div id="roomStatus"></div>
-
+```
+<div id="roomTitle">
+    ENTER ROOM NUMBER
 </div>
 
+<div id="roomText">
+    Enter the karaoke room number<br>
+    to connect to the song book.
+</div>
+
+<input
+    id="roomInput"
+    type="tel"
+    inputmode="numeric"
+    maxlength="5"
+    placeholder="1 - 99999"
+    autocomplete="off">
+
+<button id="connectBtn">
+    CONNECT
+</button>
+
+<div id="roomStatus"></div>
+```
+
+</div>
 
 <!-- SONG BOOK -->
 
 <div id="songbookScreen" class="screen">
 
-    <div id="header">
+```
+<div id="header">
 
-        <div>
+    <div>
 
-            <div id="title">
-                SONG BOOK
-            </div>
-
-            <div id="roomDisplay">
-                ROOM:
-                <span id="connectedRoom">
-                    ---
-                </span>
-            </div>
-
+        <div id="title">
+            SONG BOOK
         </div>
 
-    </div>
-
-
-    <div id="searchArea">
-
-        <input
-            id="searchInput"
-            type="search"
-            placeholder="Search song or singer..."
-            autocomplete="off">
-
-        <div id="songCount">
-            0 songs
+        <div id="roomDisplay">
+            ROOM:
+            <span id="connectedRoom">
+                ---
+            </span>
         </div>
 
-    </div>
-
-
-    <div id="songList"></div>
-
-    <div id="noSongs">
-        No songs found.
     </div>
 
 </div>
 
+
+<div id="searchArea">
+
+    <input
+        id="searchInput"
+        type="search"
+        placeholder="Search song or singer..."
+        autocomplete="off">
+
+    <div id="songCount">
+        0 songs
+    </div>
+
+</div>
+
+
+<div id="songList"></div>
+
+<div id="noSongs">
+    No songs found.
+</div>
+```
+
+</div>
 
 </div>
 
 <div id="toast"></div>
-
 
 <script>
 
@@ -439,17 +440,18 @@ const firebaseConfig = {
    SONG JSON SOURCE
 =========================================================
 
-   PALITAN LANG ITO NG RAW URL NG
-   songs.json SA IYONG EDITOR REPOSITORY.
+   songs.json MUST BE BESIDE index.html
 
-   EXAMPLE:
+   FOLDER:
 
-   https://raw.githubusercontent.com/
-   USERNAME/REPOSITORY/main/songs.json
+   REMOTE SONG BOOK/
+   ├── index.html
+   └── songs.json
+
 ========================================================= */
 
 const SONGS_JSON_URL =
-    "https://raw.githubusercontent.com/YOUR-USERNAME/YOUR-EDITOR-REPO/main/songs.json";
+    "./songs.json";
 
 
 /* =========================================================
@@ -605,16 +607,17 @@ async function loadSongs(){
             "Loading song book..."
         );
 
-        const separator =
-            SONGS_JSON_URL.includes("?")
-                ? "&"
-                : "?";
+
+        /*
+           Add timestamp to prevent
+           old JSON cache.
+        */
 
         const url =
             SONGS_JSON_URL +
-            separator +
-            "t=" +
+            "?t=" +
             Date.now();
+
 
         const response =
             await fetch(
@@ -624,39 +627,45 @@ async function loadSongs(){
                 }
             );
 
+
         if(!response.ok){
 
             throw new Error(
-                "Unable to load songs.json."
+                "songs.json not found. HTTP " +
+                response.status
             );
 
         }
 
+
         const data =
             await response.json();
+
 
         if(!Array.isArray(data)){
 
             throw new Error(
-                "songs.json must contain an array."
+                "songs.json must be an array."
             );
 
         }
 
 
         /*
-           CLEAN DATA
+           CLEAN SONG DATA
 
-           Remove:
-           - blank code
-           - blank title
+           REMOVE:
+           - empty code
+           - empty title
            - invalid code
+           - code outside 1-99999
+
+           KEEP:
+           - duplicate song numbers
+           - songs with blank singer
         */
 
         const cleaned = [];
-
-        const usedCodes =
-            new Set();
 
 
         data.forEach(song => {
@@ -695,16 +704,13 @@ async function loadSongs(){
 
             }
 
+
             if(!title){
 
                 return;
 
             }
 
-
-            /*
-               Song number must be numeric.
-            */
 
             const number =
                 Number(code);
@@ -719,28 +725,6 @@ async function loadSongs(){
                 return;
 
             }
-
-
-            /*
-               Remove duplicate song numbers.
-
-               First valid entry wins.
-            */
-
-            if(
-                usedCodes.has(
-                    String(number)
-                )
-            ){
-
-                return;
-
-            }
-
-
-            usedCodes.add(
-                String(number)
-            );
 
 
             cleaned.push({
@@ -760,13 +744,37 @@ async function loadSongs(){
 
 
         /*
-           NUMERICAL SORT
+           SORT BY NUMERIC SONG NUMBER
+
+           Example:
+
+           3
+           9
+           10
+           11
+           12
+           100
+           1001
+           5000
+           99999
         */
 
         cleaned.sort(
-            (a,b) =>
-                Number(a.code) -
-                Number(b.code)
+            (a,b) => {
+
+                const difference =
+                    Number(a.code) -
+                    Number(b.code);
+
+
+                /*
+                   If same code,
+                   preserve original order.
+                */
+
+                return difference;
+
+            }
         );
 
 
@@ -812,10 +820,16 @@ async function loadSongs(){
 
         renderSongs();
 
+
         showToast(
             "Unable to load songs.json.",
             "error"
         );
+
+
+        roomStatus.textContent =
+            error.message ||
+            "Unable to load songs.json.";
 
     }
 
@@ -833,14 +847,17 @@ function validRoom(value){
         .replace(/\D/g,"")
         .slice(0,5);
 
+
     if(!text){
 
         return null;
 
     }
 
+
     const number =
         Number(text);
+
 
     if(
         number < 1 ||
@@ -850,6 +867,7 @@ function validRoom(value){
         return null;
 
     }
+
 
     return String(number);
 
@@ -942,6 +960,7 @@ async function connectToRoom(value){
         currentRoom =
             room;
 
+
         roomRef =
             ref;
 
@@ -954,11 +973,6 @@ async function connectToRoom(value){
             songbookScreen
         );
 
-
-        /*
-           Load songs from external repository
-           after connecting.
-        */
 
         await loadSongs();
 
@@ -974,6 +988,7 @@ async function connectToRoom(value){
 
 
         showToast(
+            error.message ||
             "Room unavailable.",
             "error"
         );
@@ -1350,6 +1365,7 @@ function start(){
         return;
 
     }
+
 
     showScreen(
         roomScreen
